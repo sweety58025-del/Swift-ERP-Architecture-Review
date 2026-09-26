@@ -516,7 +516,7 @@
   <header>
 
     <div class="eyebrow">
-      WEEK 2 · ERP ARCHITECTURE REVIEW
+      SPRINT · ERP ARCHITECTURE REVIEW
     </div>
 
     <h1>
@@ -532,7 +532,7 @@
 
       <div class="meta-card">
         <span class="meta-label">Review</span>
-        <span class="meta-value">Week 2 Architecture Review</span>
+        <span class="meta-value">Sprint Architecture Review</span>
       </div>
 
       <div class="meta-card">
@@ -961,6 +961,41 @@ const DATA = [
 
 const KEY = "erp-architecture-review-v2";
 
+// ============================================================
+// N8N UPDATE NOTIFICATION
+// ============================================================
+
+const UPDATE_WEBHOOK =
+  "https://footpath-election-catapult.ngrok-free.dev/webhook/erp-architecture-review-update";
+
+const CHECKLIST_URL =
+  "https://swift-erp-architecture-review-ddlqd6zew.vercel.app/";
+
+let noteNotificationTimers = {};
+
+async function notifyChecklistUpdate(payload) {
+  try {
+    await fetch(UPDATE_WEBHOOK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8"
+      },
+      body: JSON.stringify({
+        ...payload,
+        pageUrl: CHECKLIST_URL,
+        timestamp: new Date().toISOString()
+      }),
+      keepalive: true
+    });
+  } catch (error) {
+    console.warn(
+      "Checklist notification webhook failed:",
+      error
+    );
+  }
+}
+
+
 let state = {};
 
 try {
@@ -1105,6 +1140,24 @@ function render() {
 
         save();
 
+        notifyChecklistUpdate({
+
+          eventType: "checklist_status",
+
+          sectionId: String(ci),
+
+          sectionTitle: category.title,
+
+          itemId: id,
+
+          itemTitle: itemData[0],
+
+          checked: event.target.checked,
+
+          note: state[id].note || ""
+
+        });
+
         render();
 
       });
@@ -1117,6 +1170,30 @@ function render() {
         state[id].note = event.target.value;
 
         save();
+
+        clearTimeout(noteNotificationTimers[id]);
+
+        noteNotificationTimers[id] = setTimeout(() => {
+
+          notifyChecklistUpdate({
+
+            eventType: "note_update",
+
+            sectionId: String(ci),
+
+            sectionTitle: category.title,
+
+            itemId: id,
+
+            itemTitle: itemData[0],
+
+            checked: !!state[id].checked,
+
+            note: event.target.value
+
+          });
+
+        }, 1500);
 
       });
 
