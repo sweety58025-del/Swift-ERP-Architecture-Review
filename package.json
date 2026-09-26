@@ -1,0 +1,19 @@
+{
+  "name": "swift-erp-architecture-review",
+  "version": "1.0.0",
+  "description": "ERP Architecture & Non-Functional Requirements Review Checklist with WhatsApp Automation",
+  "main": "workflow/payload_validator.js",
+  "scripts": {
+    "test": "node tests/run_audit_tests.js",
+    "test:webhook": "node scripts/test_webhook.js"
+  },
+  "keywords": [
+    "erp",
+    "architecture-review",
+    "n8n",
+    "whatsapp-cloud-api",
+    "automation"
+  ],
+  "author": "Satyam Sharma",
+  "license": "UNLICENSED"
+}

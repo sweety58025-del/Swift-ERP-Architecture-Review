@@ -1,0 +1,214 @@
+{
+  "name": "ERP Architecture Review - WhatsApp Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "erp-architecture-review-update",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Checklist Update",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "webhookId": "erp-architecture-review-update"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================================================\n// Validate Checklist Update & Build Meta WhatsApp Template Notification\n// ==========================================================================\n\nconst DEFAULT_CHECKLIST_URL = 'https://swift-erp-architecture-review-ddlqd6zew.vercel.app/';\nconst DEFAULT_BOSS_NUMBERS = ['919798637485']; // Boss Number 1\nconst TEMPLATE_NAME = 'erp_architecture_review_update';\nconst TEMPLATE_LANG = 'en_IN';\n\n// 1. Parse incoming payload (supports both JSON and text/plain stringified JSON)\nconst inputItem = $input.first().json;\nlet raw = inputItem.body !== undefined ? inputItem.body : inputItem;\n\nif (typeof raw === 'string') {\n  try {\n    raw = JSON.parse(raw.trim());\n  } catch (err) {\n    return [{\n      json: {\n        isValid: false,\n        error: 'Failed to parse text/plain JSON payload: ' + err.message\n      }\n    }];\n  }\n}\n\nif (!raw || typeof raw !== 'object') {\n  return [{\n    json: {\n      isValid: false,\n      error: 'Invalid payload: request body must be a JSON object'\n    }\n  }];\n}\n\n// 2. Validate essential fields (NO 42-item completion requirement!)\nconst itemTitle = raw.itemTitle ? String(raw.itemTitle).trim() : '';\nif (!itemTitle) {\n  return [{\n    json: {\n      isValid: false,\n      error: 'Validation failed: \"itemTitle\" is required to identify the checklist item'\n    }\n  }];\n}\n\nconst sectionTitle = raw.sectionTitle ? String(raw.sectionTitle).trim() : 'Architecture Review';\n\nlet checked = false;\nif (typeof raw.checked === 'boolean') {\n  checked = raw.checked;\n} else if (raw.checked === 'true' || raw.checked === 1 || raw.checked === '1') {\n  checked = true;\n} else if (raw.checked === 'false' || raw.checked === 0 || raw.checked === '0') {\n  checked = false;\n}\n\nconst note = raw.note ? String(raw.note).trim() : '';\nconst updatedBy = raw.updatedBy ? String(raw.updatedBy).trim() : 'Reviewer';\nconst timestamp = raw.timestamp ? String(raw.timestamp).trim() : new Date().toISOString();\nconst checklistUrl = raw.checklistUrl || raw.pageUrl || DEFAULT_CHECKLIST_URL;\nconst statusText = checked ? 'Reviewed / Done' : 'Unchecked / Pending';\nconst displayNote = note !== '' ? note : 'None'; // Meta strictly rejects empty string \"\" parameters!\n\n// 3. Format IST time\nlet formattedTime = timestamp;\ntry {\n  const d = new Date(timestamp);\n  formattedTime = isNaN(d.getTime())\n    ? new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST'\n    : d.toLocaleString('en-IN', {\n        timeZone: 'Asia/Kolkata',\n        day: '2-digit',\n        month: 'short',\n        year: 'numeric',\n        hour: '2-digit',\n        minute: '2-digit',\n        second: '2-digit',\n        hour12: false\n      }) + ' IST';\n} catch (e) {\n  formattedTime = timestamp;\n}\n\n// 4. Resolve & sanitize recipient numbers (no placeholders like BOSS_NUMBER_1)\nconst candidateNumbers = [];\nif (raw.recipientPhoneNumber) candidateNumbers.push(raw.recipientPhoneNumber);\nif (raw.recipientNumbers) {\n  if (Array.isArray(raw.recipientNumbers)) candidateNumbers.push(...raw.recipientNumbers);\n  else candidateNumbers.push(...String(raw.recipientNumbers).split(','));\n}\nif (typeof process !== 'undefined' && process.env && process.env.BOSS_WHATSAPP_NUMBERS) {\n  candidateNumbers.push(...process.env.BOSS_WHATSAPP_NUMBERS.split(','));\n}\nif (candidateNumbers.length === 0) {\n  candidateNumbers.push(...DEFAULT_BOSS_NUMBERS);\n}\n\nconst validRecipients = [];\nfor (const num of candidateNumbers) {\n  if (!num) continue;\n  const str = String(num).trim();\n  if (/^BOSS_NUMBER/i.test(str)) continue; // Drop placeholder\n  const digits = str.replace(/\\D/g, '');\n  if (digits.length === 10) validRecipients.push('91' + digits);\n  else if (digits.length === 12 && digits.startsWith('91')) validRecipients.push(digits);\n  else if (digits.length >= 10 && digits.length <= 15) validRecipients.push(digits);\n}\n\nconst recipients = Array.from(new Set(validRecipients.length > 0 ? validRecipients : DEFAULT_BOSS_NUMBERS));\n\n// 5. Output one item per recipient\nreturn recipients.map(phone => ({\n  json: {\n    isValid: true,\n    recipientPhone: phone,\n    sectionTitle,\n    itemTitle,\n    checked,\n    status: statusText,\n    note: displayNote,\n    updatedBy,\n    formattedTime,\n    checklistUrl,\n    timestamp,\n    metaPayload: {\n      messaging_product: 'whatsapp',\n      recipient_type: 'individual',\n      to: phone,\n      type: 'template',\n      template: {\n        name: TEMPLATE_NAME,\n        language: {\n          code: TEMPLATE_LANG\n        },\n        components: [\n          {\n            type: 'body',\n            parameters: [\n              { type: 'text', text: String(sectionTitle) },\n              { type: 'text', text: String(itemTitle) },\n              { type: 'text', text: String(statusText) },\n              { type: 'text', text: String(displayNote) },\n              { type: 'text', text: String(updatedBy) },\n              { type: 'text', text: String(formattedTime) },\n              { type: 'text', text: String(checklistUrl) }\n            ]\n          }\n        ]\n      }\n    },\n    freeformPayload: {\n      messaging_product: 'whatsapp',\n      recipient_type: 'individual',\n      to: phone,\n      type: 'text',\n      text: {\n        preview_url: true,\n        body: `*ERP Architecture Review Update*\\n\\n*Section:* ${sectionTitle}\\n*Checklist Item:* ${itemTitle}\\n*Status:* ${checked ? '✅ Reviewed / Done' : '⬜ Unchecked / Pending'}\\n*Note:* ${displayNote}\\n*Updated by:* ${updatedBy}\\n*Time:* ${formattedTime}\\n\\n*Checklist:* ${checklistUrl}`\n      }\n    }\n  }\n}));"
+      },
+      "id": "code-validate-prepare",
+      "name": "Code: Validate & Prepare Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-valid",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-valid-payload",
+      "name": "IF: Payload Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v21.0/1158085794064004/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($env.WHATSAPP_ACCESS_TOKEN || $credentials?.whatsAppApi?.accessToken || '') }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.metaPayload) }}",
+        "options": {
+          "continueOnFail": true,
+          "timeout": 30000
+        }
+      },
+      "id": "http-whatsapp-template",
+      "name": "HTTP: Send Meta WhatsApp Template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ==========================================================================\n// Evaluate Meta API Response\n// ==========================================================================\nconst input = $input.first().json;\nconst prev = $('Code: Validate & Prepare Notification').first().json;\n\nif (input.messages && input.messages[0]) {\n  return [{\n    json: {\n      success: true,\n      recipient: prev.recipientPhone,\n      messageId: input.messages[0].id,\n      status: 'SENT',\n      itemTitle: prev.itemTitle,\n      checked: prev.checked\n    }\n  }];\n}\n\nconst err = input.error || input;\nconst code = err.code || 'UNKNOWN';\nconst message = err.message || JSON.stringify(err);\n\nlet remediation = 'Check Meta WhatsApp API credentials and configuration.';\nif (code === 131047) {\n  remediation = 'Customer service 24h window closed. Approved template erp_architecture_review_update is required.';\n} else if (code === 100) {\n  remediation = 'Invalid parameter: verify recipient phone number and template parameters.';\n} else if (code === 190) {\n  remediation = 'WhatsApp Access Token expired or invalid.';\n}\n\nreturn [{\n  json: {\n    success: false,\n    recipient: prev.recipientPhone,\n    errorCode: code,\n    errorMessage: message,\n    remediation,\n    itemTitle: prev.itemTitle,\n    checked: prev.checked\n  }\n}];"
+      },
+      "id": "code-evaluate-meta-response",
+      "name": "Code: Evaluate Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: $json.success, recipient: $json.recipient, messageId: $json.messageId, error: $json.errorMessage, remediation: $json.remediation, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "responseCode": "={{ $json.success ? 200 : ($json.errorCode === 131047 ? 422 : 400) }}"
+        }
+      },
+      "id": "respond-success-or-meta-err",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1420,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-validation-error",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        940,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Checklist Update": {
+      "main": [
+        [
+          {
+            "node": "Code: Validate & Prepare Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Validate & Prepare Notification": {
+      "main": [
+        [
+          {
+            "node": "IF: Payload Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Payload Valid?": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Send Meta WhatsApp Template",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Send Meta WhatsApp Template": {
+      "main": [
+        [
+          {
+            "node": "Code: Evaluate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Evaluate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

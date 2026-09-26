@@ -112,7 +112,7 @@
 
   .meta-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-top: 22px;
   }
@@ -137,6 +137,35 @@
   .meta-value {
     font-size: 13px;
     font-weight: 500;
+  }
+
+  .sync-status {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    transition: background .2s ease, color .2s ease;
+  }
+
+  .sync-status.saved {
+    color: var(--text-dim);
+    background: transparent;
+  }
+
+  .sync-status.syncing {
+    color: var(--accent);
+    background: rgba(169, 124, 47, 0.12);
+  }
+
+  .sync-status.synced {
+    color: var(--success);
+    background: var(--done-bg);
+  }
+
+  .sync-status.error {
+    color: var(--warning);
+    background: rgba(168, 107, 31, 0.12);
   }
 
   /* PURPOSE */
@@ -439,6 +468,12 @@
 
   /* RESPONSIVE */
 
+  @media (max-width: 760px) {
+    .meta-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
   @media (max-width: 620px) {
     .wrap {
       padding: 28px 16px 60px;
@@ -545,6 +580,11 @@
         <span class="meta-value">Live Engineering Walkthrough</span>
       </div>
 
+      <div class="meta-card" id="reviewer-card" title="Click to change reviewer name" style="cursor: pointer;">
+        <span class="meta-label">Reviewer (click to edit)</span>
+        <span class="meta-value" id="reviewer-display">Satyam Sharma</span>
+      </div>
+
     </div>
 
     <div class="purpose">
@@ -572,6 +612,10 @@
 
       <div class="progress-count" id="count">
         0 / 0 reviewed
+      </div>
+
+      <div class="sync-status saved" id="sync-status" title="WhatsApp notification status">
+        ● Saved locally
       </div>
 
     </div>
@@ -962,274 +1006,261 @@ const DATA = [
 const KEY = "erp-architecture-review-v2";
 
 // ============================================================
-// N8N UPDATE NOTIFICATION
+// N8N WHATSAPP UPDATE NOTIFICATION CONFIGURATION
 // ============================================================
 
-const UPDATE_WEBHOOK =
+const DEFAULT_WEBHOOK_URL =
   "https://footpath-election-catapult.ngrok-free.dev/webhook/erp-architecture-review-update";
 
 const CHECKLIST_URL =
   "https://swift-erp-architecture-review-ddlqd6zew.vercel.app/";
 
+function getWebhookUrl() {
+  return (
+    window.CHECKLIST_WEBHOOK_URL ||
+    localStorage.getItem("checklist_webhook_url") ||
+    DEFAULT_WEBHOOK_URL
+  );
+}
+
+function getReviewerName() {
+  return localStorage.getItem("checklist_reviewer") || "Satyam Sharma";
+}
+
+function setReviewerName(name) {
+  const trimmed = (name || "").trim() || "Satyam Sharma";
+  localStorage.setItem("checklist_reviewer", trimmed);
+  const display = document.getElementById("reviewer-display");
+  if (display) display.textContent = trimmed;
+}
+
+const reviewerCard = document.getElementById("reviewer-card");
+if (reviewerCard) {
+  reviewerCard.addEventListener("click", () => {
+    const current = getReviewerName();
+    const next = prompt("Enter Reviewer Name for notifications:", current);
+    if (next !== null && next.trim()) {
+      setReviewerName(next);
+    }
+  });
+}
+
 let noteNotificationTimers = {};
+let lastDispatched = {};
+
+function updateSyncStatus(status, text) {
+  const el = document.getElementById("sync-status");
+  if (!el) return;
+  el.className = "sync-status " + status;
+  el.textContent = text;
+}
 
 async function notifyChecklistUpdate(payload) {
+  const url = getWebhookUrl();
+  const reviewer = getReviewerName();
+
+  const fullPayload = {
+    eventType: "checklist_update",
+    sectionId: payload.sectionId !== undefined ? String(payload.sectionId) : "",
+    sectionTitle: payload.sectionTitle || "Architecture Review",
+    itemId: payload.itemId || "",
+    itemTitle: payload.itemTitle || "",
+    checked: Boolean(payload.checked),
+    note: payload.note !== undefined ? String(payload.note).trim() : "",
+    updatedBy: payload.updatedBy || reviewer,
+    pageUrl: CHECKLIST_URL,
+    checklistUrl: CHECKLIST_URL,
+    timestamp: new Date().toISOString()
+  };
+
+  // Client-side idempotency guard to prevent duplicate notifications
+  const idempotencyKey = `${fullPayload.itemId}_${fullPayload.checked ? "1" : "0"}_${fullPayload.note}`;
+  if (lastDispatched[fullPayload.itemId] === idempotencyKey) {
+    return;
+  }
+
+  updateSyncStatus("syncing", "⟳ Syncing WhatsApp...");
+
   try {
-    await fetch(UPDATE_WEBHOOK, {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=UTF-8"
       },
-      body: JSON.stringify({
-        ...payload,
-        pageUrl: CHECKLIST_URL,
-        timestamp: new Date().toISOString()
-      }),
+      body: JSON.stringify(fullPayload),
       keepalive: true
     });
+
+    if (res.ok) {
+      lastDispatched[fullPayload.itemId] = idempotencyKey;
+      updateSyncStatus("synced", "✓ WhatsApp notified");
+      setTimeout(() => updateSyncStatus("saved", "● Saved locally"), 3500);
+    } else {
+      console.warn("Checklist notification webhook returned status:", res.status);
+      updateSyncStatus("error", "⚠ Saved locally (notification HTTP " + res.status + ")");
+      setTimeout(() => updateSyncStatus("saved", "● Saved locally"), 5000);
+    }
   } catch (error) {
-    console.warn(
-      "Checklist notification webhook failed:",
-      error
-    );
+    console.warn("Checklist notification webhook failed:", error);
+    updateSyncStatus("error", "⚠ Saved locally (notification delayed)");
+    setTimeout(() => updateSyncStatus("saved", "● Saved locally"), 5000);
   }
 }
-
 
 let state = {};
 
 try {
-
   const saved = localStorage.getItem(KEY);
-
   if (saved) {
     state = JSON.parse(saved);
   }
-
 } catch (e) {
   state = {};
 }
 
-
 function save() {
-
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch (e) {}
-
 }
 
-
-function render() {
-
-  const main = document.getElementById("main");
-
-  main.innerHTML = "";
-
-  let total = 0;
+function updateProgress() {
   let done = 0;
-
+  let total = 0;
 
   DATA.forEach((category, ci) => {
+    category.items.forEach((itemData, ii) => {
+      total++;
+      const id = `${ci}-${ii}`;
+      if (state[id] && state[id].checked) {
+        done++;
+      }
+    });
+  });
 
+  const countEl = document.getElementById("count");
+  if (countEl) countEl.textContent = `${done} / ${total} reviewed`;
+
+  const fillEl = document.getElementById("fill");
+  if (fillEl) fillEl.style.width = total ? `${(done / total) * 100}%` : "0%";
+}
+
+function render() {
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+
+  DATA.forEach((category, ci) => {
     const section = document.createElement("section");
-
     section.className = "category";
 
-
     const head = document.createElement("div");
-
     head.className = "cat-head";
-
     head.innerHTML =
       `<span class="cat-num">${String(ci + 1).padStart(2, "0")}</span>
        <span class="cat-title">${category.title}</span>`;
-
     section.appendChild(head);
 
-
     const description = document.createElement("p");
-
     description.className = "cat-description";
-
     description.textContent = category.description;
-
     section.appendChild(description);
 
-
     category.items.forEach((itemData, ii) => {
-
-      total++;
-
       const id = `${ci}-${ii}`;
-
       const saved = state[id] || {};
 
-      if (saved.checked) {
-        done++;
-      }
-
-
       const item = document.createElement("div");
-
-      item.className =
-        "item" + (saved.checked ? " done" : "");
-
+      item.className = "item" + (saved.checked ? " done" : "");
 
       const checkbox = document.createElement("input");
-
       checkbox.type = "checkbox";
-
       checkbox.checked = !!saved.checked;
-
       checkbox.dataset.id = id;
 
-
       const body = document.createElement("div");
-
       body.className = "item-body";
 
-
       const question = document.createElement("div");
-
       question.className = "q";
-
       question.textContent = itemData[0];
 
-
       const evidence = document.createElement("div");
-
       evidence.className = "evidence";
-
-      evidence.innerHTML =
-        "<strong>Review focus:</strong> " + itemData[1];
-
+      evidence.innerHTML = "<strong>Review focus:</strong> " + itemData[1];
 
       const note = document.createElement("textarea");
-
       note.className = "note";
-
-      note.placeholder =
-        "Record evidence, decision, risk, owner or follow-up action...";
-
+      note.placeholder = "Record evidence, decision, risk, owner or follow-up action...";
       note.value = saved.note || "";
-
       note.dataset.id = id;
 
-
       body.appendChild(question);
-
       body.appendChild(evidence);
-
       body.appendChild(note);
 
-
       item.appendChild(checkbox);
-
       item.appendChild(body);
-
-
       section.appendChild(item);
 
-
+      // Checkbox update: saves state, updates UI instantly, sends notification independently
       checkbox.addEventListener("change", event => {
-
         state[id] = state[id] || {};
-
         state[id].checked = event.target.checked;
-
         save();
 
+        item.classList.toggle("done", event.target.checked);
+        updateProgress();
+
         notifyChecklistUpdate({
-
-          eventType: "checklist_status",
-
+          eventType: "checklist_update",
           sectionId: String(ci),
-
           sectionTitle: category.title,
-
           itemId: id,
-
           itemTitle: itemData[0],
-
           checked: event.target.checked,
-
-          note: state[id].note || ""
-
+          note: state[id].note || "",
+          updatedBy: getReviewerName()
         });
-
-        render();
-
       });
 
-
+      // Note input: debounced 1200ms, saves state, sends notification independently
       note.addEventListener("input", event => {
-
         state[id] = state[id] || {};
-
         state[id].note = event.target.value;
-
         save();
 
         clearTimeout(noteNotificationTimers[id]);
-
         noteNotificationTimers[id] = setTimeout(() => {
-
           notifyChecklistUpdate({
-
-            eventType: "note_update",
-
+            eventType: "checklist_update",
             sectionId: String(ci),
-
             sectionTitle: category.title,
-
             itemId: id,
-
             itemTitle: itemData[0],
-
             checked: !!state[id].checked,
-
-            note: event.target.value
-
+            note: event.target.value,
+            updatedBy: getReviewerName()
           });
-
-        }, 1500);
-
+        }, 1200);
       });
-
     });
 
-
     main.appendChild(section);
-
   });
 
-
-  document.getElementById("count").textContent =
-    `${done} / ${total} reviewed`;
-
-
-  document.getElementById("fill").style.width =
-    total ? `${(done / total) * 100}%` : "0%";
-
+  updateProgress();
 }
 
-
 document.getElementById("reset").addEventListener("click", () => {
-
   if (confirm("Reset all review checks and notes?")) {
-
     state = {};
-
     save();
-
     render();
-
   }
-
 });
 
-
+// Initialize reviewer and render checklist
+setReviewerName(getReviewerName());
 render();
 
 </script>
