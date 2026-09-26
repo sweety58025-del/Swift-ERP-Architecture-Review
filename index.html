@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="ERP Architecture & Non-Functional Requirements Review Checklist">
+<title>ERP Architecture Review Checklist</title>
+
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FFFFFF;
+    --surface-alt: #FAF9F6;
+    --text: #23252B;
+    --text-dim: #6B6D76;
+    --accent: #A97C2F;
+    --accent-dark: #85601F;
+    --border: #E2DFD6;
+    --success: #397A57;
+    --warning: #A86B1F;
+    --danger: #9A3D35;
+    --done-bg: rgba(57,122,87,0.07);
+    --radius: 7px;
+
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171C;
+      --surface: #1D2027;
+      --surface-alt: #191B21;
+      --text: #E8E6E1;
+      --text-dim: #93959E;
+      --accent: #D4A24C;
+      --accent-dark: #E0B86B;
+      --border: #2C2F38;
+      --done-bg: rgba(57,122,87,0.10);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #15171C;
+    --surface: #1D2027;
+    --surface-alt: #191B21;
+    --text: #E8E6E1;
+    --text-dim: #93959E;
+    --accent: #D4A24C;
+    --accent-dark: #E0B86B;
+    --border: #2C2F38;
+    --done-bg: rgba(57,122,87,0.10);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 20px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.55;
+  }
+
+  button,
+  textarea,
+  input {
+    font: inherit;
+  }
+
+  .wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 38px 22px 80px;
+  }
+
+  /* HEADER */
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-size: clamp(24px, 4vw, 32px);
+    line-height: 1.2;
+    font-weight: 600;
+    margin: 0 0 9px;
+    letter-spacing: -.02em;
+  }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 700px;
+    margin: 0;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .meta-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 11px 12px;
+  }
+
+  .meta-label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 3px;
+  }
+
+  .meta-value {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* PURPOSE */
+
+  .purpose {
+    margin-top: 20px;
+    padding: 16px 17px;
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  .purpose-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .purpose p {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  /* PROGRESS */
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-top: 22px;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 7px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width .25s ease;
+  }
+
+  .progress-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* SECTIONS */
+
+  section.category {
+    margin-top: 32px;
+  }
+
+  .cat-head {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 9px;
+    margin-bottom: 3px;
+  }
+
+  .cat-num {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .cat-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .cat-description {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 8px 0 3px;
+  }
+
+  /* CHECK ITEMS */
+
+  .item {
+    display: flex;
+    gap: 12px;
+    padding: 15px 3px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item:last-child {
+    border-bottom: none;
+  }
+
+  .item.done {
+    background: var(--done-bg);
+  }
+
+  .item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+
+    border: 1.5px solid var(--text-dim);
+    border-radius: 4px;
+
+    margin-top: 2px;
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--surface);
+  }
+
+  .item input[type="checkbox"]:checked {
+    background: var(--success);
+    border-color: var(--success);
+  }
+
+  .item input[type="checkbox"]:checked::after {
+    content: '✓';
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .item-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .q {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .item.done .q {
+    color: var(--text-dim);
+  }
+
+  .evidence {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .evidence strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .note {
+    width: 100%;
+    margin-top: 9px;
+    padding: 9px 10px;
+
+    font-family: inherit;
+    font-size: 12.5px;
+
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    background: var(--surface);
+    color: var(--text);
+
+    resize: vertical;
+    min-height: 40px;
+  }
+
+  .note:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .note::placeholder {
+    color: var(--text-dim);
+  }
+
+  /* DELIVERABLES */
+
+  .deliverables {
+    margin-top: 34px;
+    padding: 17px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .deliverables h2 {
+    font-size: 15px;
+    margin: 0 0 5px;
+  }
+
+  .deliverables p {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 0 0 12px;
+  }
+
+  .deliverable {
+    display: flex;
+    gap: 9px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .deliverable:first-of-type {
+    border-top: none;
+  }
+
+  .deliverable::before {
+    content: '→';
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* OUTCOME */
+
+  .outcome {
+    margin-top: 18px;
+    padding: 17px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-alt);
+  }
+
+  .outcome h2 {
+    font-size: 15px;
+    margin: 0 0 7px;
+  }
+
+  .outcome ul {
+    margin: 0;
+    padding-left: 19px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .outcome li {
+    margin: 5px 0;
+  }
+
+  /* FOOTER */
+
+  footer {
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+
+  .footer-note {
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  .reset {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+  }
+
+  .reset:hover {
+    color: var(--text);
+  }
+
+  .reset:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* RESPONSIVE */
+
+  @media (max-width: 620px) {
+    .wrap {
+      padding: 28px 16px 60px;
+    }
+
+    .meta-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .item {
+      padding: 14px 1px;
+    }
+
+    .q {
+      font-size: 13.5px;
+    }
+
+    footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
+  @media print {
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FFFFFF;
+      --surface-alt: #FFFFFF;
+      --text: #111111;
+      --text-dim: #555555;
+      --border: #CCCCCC;
+      --accent: #7A581F;
+    }
+
+    body {
+      background: white;
+    }
+
+    .wrap {
+      max-width: none;
+      padding: 20px;
+    }
+
+    .progress-row,
+    .reset {
+      display: none;
+    }
+
+    .note {
+      min-height: 42px;
+    }
+
+    section.category {
+      break-inside: avoid;
+    }
+
+    .deliverables,
+    .outcome {
+      break-inside: avoid;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-fill {
+      transition: none;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <header>
+
+    <div class="eyebrow">
+      WEEK 2 · ERP ARCHITECTURE REVIEW
+    </div>
+
+    <h1>
+      Architecture & Non-Functional Requirements Checklist
+    </h1>
+
+    <p class="sub">
+      A structured review of the current ERP architecture, operational readiness,
+      security controls, scalability assumptions and future evolution path.
+    </p>
+
+    <div class="meta-grid">
+
+      <div class="meta-card">
+        <span class="meta-label">Review</span>
+        <span class="meta-value">Week 2 Architecture Review</span>
+      </div>
+
+      <div class="meta-card">
+        <span class="meta-label">System</span>
+        <span class="meta-value">ERP Platform</span>
+      </div>
+
+      <div class="meta-card">
+        <span class="meta-label">Review Mode</span>
+        <span class="meta-value">Live Engineering Walkthrough</span>
+      </div>
+
+    </div>
+
+    <div class="purpose">
+
+      <div class="purpose-title">
+        Purpose of this checklist
+      </div>
+
+      <p>
+        Use this checklist during the engineering review to establish the
+        current state, understand design decisions and trade-offs, identify
+        material risks, and agree on a practical target architecture.
+        The checklist does not prescribe a specific technology; engineering
+        decisions should be justified against business requirements, expected
+        scale and operational risk.
+      </p>
+
+    </div>
+
+    <div class="progress-row">
+
+      <div class="progress-track">
+        <div class="progress-fill" id="fill"></div>
+      </div>
+
+      <div class="progress-count" id="count">
+        0 / 0 reviewed
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main id="main"></main>
+
+
+  <section class="deliverables">
+
+    <h2>Required Review Deliverables</h2>
+
+    <p>
+      Where applicable, the engineering team should provide or walk through
+      the following artifacts during the review.
+    </p>
+
+    <div class="deliverable">
+      Current-state architecture diagram
+    </div>
+
+    <div class="deliverable">
+      Proposed / target architecture and evolution path
+    </div>
+
+    <div class="deliverable">
+      Data architecture overview, including major collections and indexes
+    </div>
+
+    <div class="deliverable">
+      API and external integration architecture
+    </div>
+
+    <div class="deliverable">
+      Deployment, environment and infrastructure overview
+    </div>
+
+    <div class="deliverable">
+      Security and RBAC overview
+    </div>
+
+    <div class="deliverable">
+      Backup, recovery and operational resilience approach
+    </div>
+
+    <div class="deliverable">
+      Known risks and technical-debt register with proposed priorities
+    </div>
+
+  </section>
+
+
+  <section class="outcome">
+
+    <h2>Expected Review Outcome</h2>
+
+    <ul>
+
+      <li>
+        Confirm the actual current architecture and technology stack.
+      </li>
+
+      <li>
+        Identify architectural limitations, security risks and operational risks.
+      </li>
+
+      <li>
+        Establish the practical target architecture and evolution path.
+      </li>
+
+      <li>
+        Separate immediate requirements from requirements that become necessary
+        at a defined scale.
+      </li>
+
+      <li>
+        Record technical decisions, owners, priorities and follow-up actions.
+      </li>
+
+    </ul>
+
+  </section>
+
+
+  <footer>
+
+    <div class="footer-note">
+      Architecture review record · Internal / Client Engineering Review
+    </div>
+
+    <button class="reset" id="reset">
+      Reset checklist
+    </button>
+
+  </footer>
+
+</div>
+
+
+<script>
+
+const DATA = [
+
+  {
+    title: "Architecture & Scalability",
+    description:
+      "Establish current capacity assumptions and understand how the application is expected to evolve under increased usage.",
+    items: [
+
+      [
+        "What is the current and expected workload?",
+        "Please provide assumptions for concurrent users/terminals, transactions, automation calls, data growth and peak usage."
+      ],
+
+      [
+        "Is the application tier stateless and horizontally scalable?",
+        "Explain session handling, shared state, file storage and any dependencies on a specific application instance."
+      ],
+
+      [
+        "What is the current deployment topology?",
+        "Show application instances, reverse proxy/load balancer, database and supporting services."
+      ],
+
+      [
+        "What are the expected performance targets?",
+        "Define relevant P95/P99 latency, throughput and availability targets for critical workflows."
+      ],
+
+      [
+        "What are the next expected bottlenecks as usage increases?",
+        "Identify likely constraints at approximately 2x, 5x and 10x current workload where meaningful."
+      ],
+
+      [
+        "What measurable conditions would trigger scaling or architectural changes?",
+        "Examples may include CPU, memory, database load, latency, queue depth, connection limits or error rates."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "Data Architecture & Integrity",
+    description:
+      "Review the data model, query performance, consistency requirements and protection of business-critical information.",
+    items: [
+
+      [
+        "Is the data model aligned with actual business workflows?",
+        "Review major collections/entities, relationships, lifecycle and ownership of important data."
+      ],
+
+      [
+        "What is the indexing strategy?",
+        "Indexes should be justified against actual query, sort, filter and uniqueness requirements."
+      ],
+
+      [
+        "Where is data intentionally denormalized?",
+        "Explain why denormalization is used and how consistency is maintained."
+      ],
+
+      [
+        "What consistency guarantees exist for critical operations?",
+        "Specifically review inventory, pricing, financial and transactional operations."
+      ],
+
+      [
+        "How are concurrent updates handled?",
+        "Discuss duplicate submissions, race conditions, conflicting updates and partial failures."
+      ],
+
+      [
+        "What are the backup and recovery guarantees?",
+        "Review backup frequency, retention, restore testing, disaster recovery and point-in-time recovery."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "API & Integration Architecture",
+    description:
+      "Establish a stable foundation for internal APIs, automation and future third-party integrations.",
+    items: [
+
+      [
+        "Are API contracts defined and versioned?",
+        "Review request/response structures, versioning strategy and backward-compatibility expectations."
+      ],
+
+      [
+        "Is there a consistent API error model?",
+        "Review status codes, error identifiers, validation errors and client-facing messages."
+      ],
+
+      [
+        "How are retried write operations made safe?",
+        "Review idempotency mechanisms for automation, integrations and potentially repeated requests."
+      ],
+
+      [
+        "How will external integrations communicate with the ERP?",
+        "Review webhooks, polling, scheduled synchronization and event-driven approaches where applicable."
+      ],
+
+      [
+        "How are webhook requests authenticated and protected?",
+        "Review signatures, authentication, replay protection and failure/retry handling."
+      ],
+
+      [
+        "How are large result sets exposed?",
+        "Review pagination, filtering, sorting and limits for automation-consumed APIs."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "Reliability & Operational Resilience",
+    description:
+      "Understand how the system behaves when dependencies fail, become slow or return unexpected responses.",
+    items: [
+
+      [
+        "What are the timeout policies for external dependencies?",
+        "Identify reasonable timeout boundaries for each critical external service."
+      ],
+
+      [
+        "What retry strategy is used?",
+        "Review retry limits, exponential backoff, retryable errors and prevention of retry storms."
+      ],
+
+      [
+        "How are failed background operations recovered?",
+        "Review job states, retry mechanisms, failure visibility and dead-letter/error handling where applicable."
+      ],
+
+      [
+        "Are there known single points of failure?",
+        "Identify application, database, authentication, infrastructure or integration dependencies."
+      ],
+
+      [
+        "How is rate limiting handled?",
+        "Review protection against accidental or runaway automation and excessive API traffic."
+      ],
+
+      [
+        "What happens when an external operation partially succeeds?",
+        "Review reconciliation, rollback, retry and consistency mechanisms."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "Security & Access Control",
+    description:
+      "Verify that access to business functionality and sensitive data is controlled, auditable and maintainable.",
+    items: [
+
+      [
+        "What is the authentication architecture?",
+        "Review authentication flow, token/session handling, expiry and account lifecycle."
+      ],
+
+      [
+        "Is there a documented RBAC model?",
+        "Map roles and permissions to actual organizational responsibilities and sensitive operations."
+      ],
+
+      [
+        "Are sensitive operations protected at the API/service layer?",
+        "Permissions should not depend solely on frontend visibility or UI restrictions."
+      ],
+
+      [
+        "How are secrets and credentials managed?",
+        "Review environment configuration, secret storage, rotation and exposure risks."
+      ],
+
+      [
+        "Are sensitive business changes audit-logged?",
+        "Review inventory adjustments, pricing changes, payments, user changes and permission changes."
+      ],
+
+      [
+        "What application-security controls are in place?",
+        "Review input validation, injection protection, dependency scanning and secure configuration."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "DevOps, Deployment & Observability",
+    description:
+      "Review the ability to release safely, detect failures quickly and maintain consistent environments.",
+    items: [
+
+      [
+        "Are development, staging and production environments separated?",
+        "Review configuration management and the degree of parity between environments."
+      ],
+
+      [
+        "What is the CI/CD process?",
+        "Review automated tests, linting, security checks and approval gates before deployment."
+      ],
+
+      [
+        "What is the deployment and rollback strategy?",
+        "Review rolling/blue-green approaches where appropriate and application rollback procedures."
+      ],
+
+      [
+        "How are database changes managed?",
+        "Review migration/versioning procedures, compatibility and rollback considerations."
+      ],
+
+      [
+        "What is actively monitored?",
+        "Review errors, latency, availability, resource usage, failed jobs and integration failures."
+      ],
+
+      [
+        "Are logs structured and traceable?",
+        "Review correlation/request IDs, centralized logs and the ability to investigate production incidents."
+      ],
+
+      [
+        "Are alerts connected to defined operational objectives?",
+        "Review SLOs/SLIs and whether alerts identify material failures before business impact grows."
+      ]
+
+    ]
+  },
+
+
+  {
+    title: "Technical Risk & Architecture Decisions",
+    description:
+      "Convert the review into an actionable engineering plan rather than a list of observations.",
+    items: [
+
+      [
+        "What are the top current architectural risks?",
+        "Identify the risks that could materially affect reliability, security, scalability or maintainability."
+      ],
+
+      [
+        "Which risks require action before further feature development?",
+        "Separate blockers from improvements that can be addressed progressively."
+      ],
+
+      [
+        "Which capabilities should be introduced only at a defined scale?",
+        "Avoid premature complexity; define the business/technical trigger for introducing additional infrastructure."
+      ],
+
+      [
+        "What technical decisions require formal agreement?",
+        "Record unresolved architecture decisions and the alternatives considered."
+      ],
+
+      [
+        "What actions are required after this review?",
+        "Assign owner, priority, target date and expected outcome for each agreed action."
+      ]
+
+    ]
+  }
+
+];
+
+
+const KEY = "erp-architecture-review-v2";
+
+let state = {};
+
+try {
+
+  const saved = localStorage.getItem(KEY);
+
+  if (saved) {
+    state = JSON.parse(saved);
+  }
+
+} catch (e) {
+  state = {};
+}
+
+
+function save() {
+
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (e) {}
+
+}
+
+
+function render() {
+
+  const main = document.getElementById("main");
+
+  main.innerHTML = "";
+
+  let total = 0;
+  let done = 0;
+
+
+  DATA.forEach((category, ci) => {
+
+    const section = document.createElement("section");
+
+    section.className = "category";
+
+
+    const head = document.createElement("div");
+
+    head.className = "cat-head";
+
+    head.innerHTML =
+      `<span class="cat-num">${String(ci + 1).padStart(2, "0")}</span>
+       <span class="cat-title">${category.title}</span>`;
+
+    section.appendChild(head);
+
+
+    const description = document.createElement("p");
+
+    description.className = "cat-description";
+
+    description.textContent = category.description;
+
+    section.appendChild(description);
+
+
+    category.items.forEach((itemData, ii) => {
+
+      total++;
+
+      const id = `${ci}-${ii}`;
+
+      const saved = state[id] || {};
+
+      if (saved.checked) {
+        done++;
+      }
+
+
+      const item = document.createElement("div");
+
+      item.className =
+        "item" + (saved.checked ? " done" : "");
+
+
+      const checkbox = document.createElement("input");
+
+      checkbox.type = "checkbox";
+
+      checkbox.checked = !!saved.checked;
+
+      checkbox.dataset.id = id;
+
+
+      const body = document.createElement("div");
+
+      body.className = "item-body";
+
+
+      const question = document.createElement("div");
+
+      question.className = "q";
+
+      question.textContent = itemData[0];
+
+
+      const evidence = document.createElement("div");
+
+      evidence.className = "evidence";
+
+      evidence.innerHTML =
+        "<strong>Review focus:</strong> " + itemData[1];
+
+
+      const note = document.createElement("textarea");
+
+      note.className = "note";
+
+      note.placeholder =
+        "Record evidence, decision, risk, owner or follow-up action...";
+
+      note.value = saved.note || "";
+
+      note.dataset.id = id;
+
+
+      body.appendChild(question);
+
+      body.appendChild(evidence);
+
+      body.appendChild(note);
+
+
+      item.appendChild(checkbox);
+
+      item.appendChild(body);
+
+
+      section.appendChild(item);
+
+
+      checkbox.addEventListener("change", event => {
+
+        state[id] = state[id] || {};
+
+        state[id].checked = event.target.checked;
+
+        save();
+
+        render();
+
+      });
+
+
+      note.addEventListener("input", event => {
+
+        state[id] = state[id] || {};
+
+        state[id].note = event.target.value;
+
+        save();
+
+      });
+
+    });
+
+
+    main.appendChild(section);
+
+  });
+
+
+  document.getElementById("count").textContent =
+    `${done} / ${total} reviewed`;
+
+
+  document.getElementById("fill").style.width =
+    total ? `${(done / total) * 100}%` : "0%";
+
+}
+
+
+document.getElementById("reset").addEventListener("click", () => {
+
+  if (confirm("Reset all review checks and notes?")) {
+
+    state = {};
+
+    save();
+
+    render();
+
+  }
+
+});
+
+
+render();
+
+</script>
+
+</body>
+</html>
