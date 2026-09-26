@@ -8,8 +8,8 @@ This repository houses the **ERP Architecture & Non-Functional Requirements Chec
 
 ```
 ┌─────────────────────────────────┐
-│     Checklist UI (Browser)      │  User checks item / unchecks item / adds note
-│  (LocalStorage sync immediate)  │
+│     Checklist UI (Browser)      │  User checks item / adds note (saved locally)
+│  (LocalStorage sync immediate)  │  User clicks "Send to WhatsApp" button
 └────────────────┬────────────────┘
                  │ POST (text/plain JSON to avoid CORS preflight)
                  ▼
@@ -38,6 +38,8 @@ This repository houses the **ERP Architecture & Non-Functional Requirements Chec
 │         (919798637485)          │  note, reviewer name, timestamp, and review link
 └─────────────────────────────────┘
 ```
+
+> **Explicit Send Action:** To prevent accidental spamming while reviewing, checking items, or drafting notes, WhatsApp notifications are dispatched **exclusively when the reviewer clicks the "Send to WhatsApp" button** (available on each item and via the floating quick-send action bar).
 
 ---
 
